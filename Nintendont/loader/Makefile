@@ -24,6 +24,7 @@ BUILD		:= build
 SOURCES		:= source
 SOURCES		+= source/unzip
 SOURCES		+= source/update
+SOURCES		+= source/luckystats
 SOURCES		+= ../common/config
 DATA		:= data
 INCLUDES	:= include ../fatfs

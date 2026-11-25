@@ -11,6 +11,9 @@
  * the Homebrew Channel instead (the app in memory is the old one). */
 void SlippWii_Update(void);
 
+/* The wired connection up (luckystats.c too): 0, or < 0. Gives up when `cancelled`, if given, says so. */
+int SlippWii_NetworkStart(int (*cancelled)(void));
+
 /* tests (tools/update_wii_test.py): the launch argument "slippwii-update-test=URL;FOLDER", kept by
  * main.c. Only a test build acts on it (source/update_test.inc): there SlippWii_UpdateTest runs the
  * update by itself and returns 1. In every other build it returns 0 and does nothing. */

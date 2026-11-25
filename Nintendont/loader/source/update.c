@@ -421,15 +421,18 @@ static void step(const char *fmt, ...)
 
 static int net_up;
 
-static int network_start(void)
+int SlippWii_NetworkStart(int (*cancelled)(void))
 {
 	s64 t = gettime();
 	s32 res;
 	if (net_up)
 		return 0;
 	net_init_async(NULL, NULL);
-	while ((res = net_get_status()) == -EBUSY && ms_since(t) < NET_START_MS)
+	while ((res = net_get_status()) == -EBUSY && ms_since(t) < NET_START_MS) {
+		if (cancelled && cancelled())
+			return -EBUSY;
 		usleep(50 * 1000);
+	}
 	if (res < 0 || net_gethostip() == 0)
 		return res < 0 ? res : -1;
 	net_up = 1;
@@ -465,7 +468,7 @@ static void run(const char *url, const unsigned char *key, int flags, int stay, 
 	screen_clear();
 	step("Connecting to the network...");
 	t = gettime();
-	res = network_start();
+	res = SlippWii_NetworkStart(NULL);
 	o->net_ms = ms_since(t);
 	if (res < 0) {
 		o->result = res;

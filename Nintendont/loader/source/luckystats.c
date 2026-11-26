@@ -41,20 +41,39 @@ static const char *const dev_name[2] = { "sd", "usb" };
 
 /* The connection's bytes (ls_core.h): wait for IOS to say the socket is ready, then a blocking send or
  * receive, which says how much went. Not upd_plat_send's non-blocking send, sent again after -EAGAIN: a
- * Wii can answer that to a big send it took part of, and the bytes sent twice broke the uploads at 0%
- * (and, for "Send Replays to PC", put more bytes in a file than it had). */
-#define LINK_PIECE 16384
+ * Wii can answer that to a big send it took part of, and the bytes sent twice broke the uploads at 0%.
+ *
+ * All the waiting is in the poll: in slices, so Skip works, and given up after LINK_WAIT_MS with nothing
+ * (as upd_plat_send did). A blocking send waits for room for all of its bytes, with no limit: one that
+ * outgrew the room the poll found could hang on a dropped connection until TCP gave up, minutes later.
+ * So a send is at most LINK_SEND bytes, the room a socket has when its poll says it is writable (BSD's
+ * send low-water mark), and it goes at once. */
+#define LINK_SEND 2048
 #define LINK_WAIT_MS 20000
+#define LINK_SLICE_MS 100
 
 static int link_ready(s32 s, u32 events)
 {
 	struct pollsd p;
-	s32 flags;
-	p.socket = s;
-	p.events = events;
-	p.revents = 0;
-	if (net_poll(&p, 1, LINK_WAIT_MS) <= 0 || !(p.revents & events))
-		return -1;
+	s32 flags, n;
+	u32 waited;
+	for (waited = 0;; waited += LINK_SLICE_MS) {
+		if (ls_plat_cancelled())
+			return -ECANCELED;
+		if (waited >= LINK_WAIT_MS)
+			return -ETIMEDOUT;
+		p.socket = s;
+		p.events = events;
+		p.revents = 0;
+		n = net_poll(&p, 1, LINK_SLICE_MS);
+		if (n < 0)
+			return n;
+		if (n > 0) {
+			if (!(p.revents & events))
+				return -ECONNRESET;	/* (an error or hang-up only) */
+			break;
+		}
+	}
 	flags = net_fcntl(s, F_GETFL, 0);	/* (upd_plat_connect leaves it non-blocking: 4) */
 	if (flags >= 0 && (flags & 4))
 		net_fcntl(s, F_SETFL, flags & ~4);
@@ -63,17 +82,17 @@ static int link_ready(s32 s, u32 events)
 
 int ls_plat_send(int sock, const uint8_t *buf, int len)
 {
-	if (len > LINK_PIECE)
-		len = LINK_PIECE;
-	if (link_ready(sock, POLLOUT) != 0)
-		return -ETIMEDOUT;
-	return net_send(sock, buf, len, 0);
+	int res = link_ready(sock, POLLOUT);
+	if (res != 0)
+		return res;
+	return net_send(sock, buf, len > LINK_SEND ? LINK_SEND : len, 0);
 }
 
 int ls_plat_recv(int sock, uint8_t *buf, int len)
 {
-	if (link_ready(sock, POLLIN) != 0)
-		return -ETIMEDOUT;
+	int res = link_ready(sock, POLLIN);
+	if (res != 0)
+		return res;
 	return net_recv(sock, buf, len, 0);
 }
 static u32 start_time;
@@ -299,6 +318,7 @@ int ls_plat_state_create(int dev, const char *text, uint32_t len)
 void LuckyStats_Run(u32 now)
 {
 	int home = devices[DEV_SD] ? 0 : 1, res, sent = 0;
+	uint32_t later = 0, n;
 	LsConfig config;
 	uint32_t len = 0;
 	char *text = NULL, said[64], date[64];
@@ -314,7 +334,7 @@ void LuckyStats_Run(u32 now)
 	memset(text, 0, len);
 	upd_plat_free(text);
 	if (res == LS_OK)
-		res = ls_run(&config, (devices[DEV_SD] ? 1 : 0) | (devices[DEV_USB] ? 2 : 0), home, &sent);
+		res = ls_run(&config, (devices[DEV_SD] ? 1 : 0) | (devices[DEV_USB] ? 2 : 0), home, &sent, &later);
 	memset(&config, 0, sizeof(config));
 	if (net_get_status() == -EBUSY)
 		net_deinit();	/* (skipped while it connected: not left running) */
@@ -356,8 +376,15 @@ void LuckyStats_Run(u32 now)
 	case LS_SERVER:
 		tell(MAROON, "Lucky Stats could not take the games now.", "They are kept and sent another time.");
 		break;
+	case LS_LATER:
+		/* (said each start until then: a start that says nothing looks like a try that failed again) */
+		n = later < 2 * 3600 ? (later + 59) / 60 : (later + 1799) / 3600;
+		snprintf(said, sizeof(said), "The last try failed. Trying again in %lu %s%s.", (unsigned long)n,
+			later < 2 * 3600 ? "minute" : "hour", n == 1 ? "" : "s");
+		tell(BLACK, said, "Your games are kept until then.");
+		break;
 	default:
-		break;		/* (skipped, or too soon after a failure) */
+		break;		/* (skipped) */
 	}
 	ClearScreen();
 }

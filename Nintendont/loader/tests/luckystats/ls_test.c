@@ -238,6 +238,7 @@ int main(int argc, char **argv)
 	if (argc == 9 && strcmp(argv[1], "run") == 0) {
 		static uint8_t dn[256], q[65];
 		int sent = 0, devs = atoi(argv[3]);
+		uint32_t later = 0;
 		root = argv[2];
 		now = (uint32_t)strtoul(argv[4], NULL, 10);
 		ls_test_port = (uint16_t)atoi(argv[5]);
@@ -252,8 +253,8 @@ int main(int argc, char **argv)
 		memset(&c, 0, sizeof(c));
 		sprintf(c.key, "l7u_%064d", 5);
 		c.history = atoi(argv[8]);
-		len = (uint32_t)ls_run(&c, devs, devs & 1 ? 0 : 1, &sent);
-		printf("RESULT %u %d\n", (unsigned)len, sent);
+		len = (uint32_t)ls_run(&c, devs, devs & 1 ? 0 : 1, &sent, &later);
+		printf("RESULT %u %d\nLATER %u\n", (unsigned)len, sent, (unsigned)later);
 		return 0;
 	}
 	return 2;

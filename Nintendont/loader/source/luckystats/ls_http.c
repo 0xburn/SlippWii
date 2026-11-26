@@ -104,6 +104,8 @@ static int failed(Conn *c, LsAnswer *a)
 {
 	int e = br_ssl_engine_last_error(&c->sc.eng);
 	a->tls_error = e;
+	if (ls_plat_cancelled())
+		return LS_CANCEL;	/* (Skip while it waited for the connection: not a failure) */
 	if (e == BR_ERR_X509_EXPIRED)
 		return LS_CLOCK;
 	if (e >= BR_ERR_X509_OK && e <= BR_ERR_X509_NOT_TRUSTED)

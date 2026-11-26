@@ -271,6 +271,8 @@ class Wii:
         if KEY in self.out or 'Signature' in self.out:
             check('nothing secret is said', False, self.out)
         m = re.search(r'RESULT (\d+) (\d+)', self.out)
+        later = re.search(r'LATER (\d+)', self.out)
+        self.later = int(later[1]) if later else None
         return (int(m[1]), int(m[2])) if m else None
 
     def state(self, dev='sd'):
@@ -411,6 +413,7 @@ def tests(exe, d):
         check(f'{what} {how}: says what', w.start() == (want, 0), w.out)
         n = len(s.log)
         check(f'{what} {how}: not at once again', w.start() == (LATER, 0) and len(s.log) == n, w.out)
+        check(f'{what} {how}: says when', w.later == 300, w.out)
         s.fail.clear()
         check(f'{what} {how}: after five minutes', w.start(now=w.now + 301) == (OK, 2) and uploaded(s) == shas(*new), w.out)
         check(f'{what} {how}: forgotten', w.state().rstrip().endswith('w 0 0'), w.state())
@@ -433,7 +436,8 @@ def tests(exe, d):
     w.game(1)
     s.fail['ask'] = [1, (429, 'rate_limited', [('Retry-After', '7200')])]
     w.start()
-    check("the server's wait", w.start(now=w.now + 7199)[0] == LATER and w.start(now=w.now + 7201) == (OK, 1), w.out)
+    check("the server's wait", w.start(now=w.now + 7199)[0] == LATER and w.later == 1, w.out)
+    check("the server's wait: over", w.start(now=w.now + 7201) == (OK, 1) and w.later == 0, w.out)
 
     # no network, no drive
     w, s = fresh()

@@ -59,7 +59,8 @@ int ls_config(const char *text, uint32_t len, LsConfig *c);
 
 /* The whole of it, for the drives of `devs` (a bit each: 1 SD, 2 USB); `state_dev` (0 or 1) keeps when to
  * try again. `*sent`: games uploaded. LS_*. */
-int ls_run(const LsConfig *c, int devs, int state_dev, int *sent);
+/* *later: with LS_LATER, the seconds until it tries again. */
+int ls_run(const LsConfig *c, int devs, int state_dev, int *sent, uint32_t *later);
 
 /* ---- ls_http.c ---- */
 
@@ -97,7 +98,7 @@ uint32_t ls_plat_time(void);			/* seconds since 1970 by the console's clock */
  * upd_plat_send/recv: on a Wii those send again after -EAGAIN, which IOS can answer to a big send it took
  * part of, and a byte sent twice breaks TLS (luckystats.c). */
 int ls_plat_send(int sock, const uint8_t *buf, int len);
-int ls_plat_recv(int sock, uint8_t *buf, int len);	/* > 0; 0: closed; < 0: failed or timed out */
+int ls_plat_recv(int sock, uint8_t *buf, int len);	/* > 0; 0: closed; < 0: failed, timed out or skipped */
 int ls_plat_network(void);			/* LS_OK, LS_NET or LS_CANCEL; may wait */
 int ls_plat_cancelled(void);			/* the player wants to go on */
 int ls_plat_wait(uint32_t ms);			/* LS_OK or LS_CANCEL */

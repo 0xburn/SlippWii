@@ -848,7 +848,7 @@ static int drive(Session *s, Drive *d, int *sent, int *online)
 	}
 }
 
-int ls_run(const LsConfig *config, int devs, int state_dev, int *sent)
+int ls_run(const LsConfig *config, int devs, int state_dev, int *sent, uint32_t *later)
 {
 	Drive *d[2] = { NULL, NULL };
 	Session s;
@@ -857,6 +857,7 @@ int ls_run(const LsConfig *config, int devs, int state_dev, int *sent)
 	char line[48];
 
 	*sent = 0;
+	*later = 0;
 	memset(&s, 0, sizeof(s));
 	s.config = config;
 	for (dev = 0; dev < 2 && res == LS_OK; dev++) {
@@ -872,8 +873,10 @@ int ls_run(const LsConfig *config, int devs, int state_dev, int *sent)
 	}
 	/* After failures it waits: 5 minutes, twice that, ... 6 hours, or what the server said. (A time further
 	 * off than that: the clock was set. Not waited for.) */
-	if (res == LS_OK && d[state_dev]->wait_until > now && d[state_dev]->wait_until - now <= 24 * 3600)
+	if (res == LS_OK && d[state_dev]->wait_until > now && d[state_dev]->wait_until - now <= 24 * 3600) {
 		res = LS_LATER;
+		*later = d[state_dev]->wait_until - now;
+	}
 	if (res == LS_OK) {
 		s.a.body = malloc(LS_ANSWER_MAX);
 		if (!s.a.body)

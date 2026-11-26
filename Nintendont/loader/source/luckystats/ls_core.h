@@ -93,6 +93,11 @@ int ls_url(const char *url, char *host, size_t size, uint16_t *port, const char 
 typedef void (*LsFound)(void *arg, const char *name, uint32_t size);
 
 uint32_t ls_plat_time(void);			/* seconds since 1970 by the console's clock */
+/* The HTTPS connection's bytes, on a socket from upd_plat_connect: some of `len` (> 0), or < 0. Not
+ * upd_plat_send/recv: on a Wii those send again after -EAGAIN, which IOS can answer to a big send it took
+ * part of, and a byte sent twice breaks TLS (luckystats.c). */
+int ls_plat_send(int sock, const uint8_t *buf, int len);
+int ls_plat_recv(int sock, uint8_t *buf, int len);	/* > 0; 0: closed; < 0: failed or timed out */
 int ls_plat_network(void);			/* LS_OK, LS_NET or LS_CANCEL; may wait */
 int ls_plat_cancelled(void);			/* the player wants to go on */
 int ls_plat_wait(uint32_t ms);			/* LS_OK or LS_CANCEL */

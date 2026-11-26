@@ -12,6 +12,7 @@
 #include <network.h>
 #include <ogc/lwp_watchdog.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <malloc.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -37,6 +38,44 @@ extern FATFS *devices[2];
 extern u32 Shutdown;	/* menu.c */
 
 static const char *const dev_name[2] = { "sd", "usb" };
+
+/* The connection's bytes (ls_core.h): wait for IOS to say the socket is ready, then a blocking send or
+ * receive, which says how much went. Not upd_plat_send's non-blocking send, sent again after -EAGAIN: a
+ * Wii can answer that to a big send it took part of, and the bytes sent twice broke the uploads at 0%
+ * (and, for "Send Replays to PC", put more bytes in a file than it had). */
+#define LINK_PIECE 16384
+#define LINK_WAIT_MS 20000
+
+static int link_ready(s32 s, u32 events)
+{
+	struct pollsd p;
+	s32 flags;
+	p.socket = s;
+	p.events = events;
+	p.revents = 0;
+	if (net_poll(&p, 1, LINK_WAIT_MS) <= 0 || !(p.revents & events))
+		return -1;
+	flags = net_fcntl(s, F_GETFL, 0);	/* (upd_plat_connect leaves it non-blocking: 4) */
+	if (flags >= 0 && (flags & 4))
+		net_fcntl(s, F_SETFL, flags & ~4);
+	return 0;
+}
+
+int ls_plat_send(int sock, const uint8_t *buf, int len)
+{
+	if (len > LINK_PIECE)
+		len = LINK_PIECE;
+	if (link_ready(sock, POLLOUT) != 0)
+		return -ETIMEDOUT;
+	return net_send(sock, buf, len, 0);
+}
+
+int ls_plat_recv(int sock, uint8_t *buf, int len)
+{
+	if (link_ready(sock, POLLIN) != 0)
+		return -ETIMEDOUT;
+	return net_recv(sock, buf, len, 0);
+}
 static u32 start_time;
 static s64 start_ticks;
 

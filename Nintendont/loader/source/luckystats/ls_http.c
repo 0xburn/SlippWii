@@ -52,13 +52,13 @@ int ls_test_root_set;
 
 static int low_read(void *ctx, unsigned char *buf, size_t len)
 {
-	int n = upd_plat_recv(((Conn *)ctx)->sock, buf, (int)(len > PIECE ? PIECE : len));
+	int n = ls_plat_recv(((Conn *)ctx)->sock, buf, (int)(len > PIECE ? PIECE : len));
 	return n > 0 ? n : -1;
 }
 
 static int low_write(void *ctx, const unsigned char *buf, size_t len)
 {
-	int n = upd_plat_send(((Conn *)ctx)->sock, buf, (int)(len > PIECE ? PIECE : len));
+	int n = ls_plat_send(((Conn *)ctx)->sock, buf, (int)(len > PIECE ? PIECE : len));
 	return n > 0 ? n : -1;
 }
 

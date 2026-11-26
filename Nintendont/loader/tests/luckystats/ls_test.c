@@ -60,6 +60,8 @@ int upd_plat_send(int s, const uint8_t *buf, int len) { return (int)send(s, buf,
 int upd_plat_send(int s, const uint8_t *buf, int len) { return (int)send(s, buf, (size_t)len, 0); }
 #endif
 void upd_plat_close(int s) { close(s); }
+int ls_plat_send(int s, const uint8_t *buf, int len) { return upd_plat_send(s, buf, len); }
+int ls_plat_recv(int s, uint8_t *buf, int len) { return upd_plat_recv(s, buf, len); }
 void upd_plat_entropy(uint8_t out[32]) { memset(out, 7, 32); }	/* (the worst a Wii could give) */
 void *upd_plat_alloc(uint32_t size) { return malloc(size ? size : 1); }
 void upd_plat_free(void *p) { free(p); }

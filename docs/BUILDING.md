@@ -48,6 +48,9 @@ includes have been generated.
 | `tools/build_bearssl.py` | BearSSL, the updater's TLS library: its pinned source built for the Wii into `Nintendont/loader/extlibs` (committed) |
 | `tools/sign_update.py` | The release key, and a release's signed `update.txt` |
 | `tools/test_update.py` | The updater's core on a PC: signatures, a web server playing GitHub, a folder playing the card |
+| `Nintendont/loader/source/luckystats.c`, `luckystats/` | Uploads to Lucky Stats: the Wii's part, and the part a PC can test (what is sent, HTTPS with the certificate checked) |
+| `tools/make_luckystats_roots.py` | The authorities those uploads trust (`ls_roots.inc`) |
+| `tools/test_luckystats.py` | The uploads on a PC: two web servers and a certificate authority of its own, folders playing the drives, power cuts |
 | `tools/update_wii_test.py` | The updater on a Wii with nobody there: a test build, a server on the PC, a capture card |
 | `tools/online_selftest.py`, `tools/sweep/`, `tools/wii_mirror.py`, `tools/slp_compare.py` | Test tools |
 
@@ -60,6 +63,7 @@ python tools/online_selftest.py pc --game                       # the client vs 
 python tools/online_selftest.py pc --game --rollback 2          # the same, rolling back (docs/ROLLBACK.md)
 python tools/rollback/test/run.py                               # the savestate engine vs a simulated Wii
 python tools/test_update.py [--live]                            # the updater's core (--live: a download from GitHub)
+python tools/test_luckystats.py                                 # the Lucky Stats uploads (Linux, macOS)
 python tools/test_loader_slippwii.py --iso Melee.iso --zip dist/SlippWii-vX.zip   # the loader's file making, on a PC
 python tools/test_hsd_links.py --iso Melee.iso                  # the next Slippi's linked files, C and Python
 python tools/online_selftest.py pc --next-mm                    # matchmaking as after 3.6.4 (WebSocket, TLS, STUN)

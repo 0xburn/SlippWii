@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "FPad.h"
 #include "menu.h"
 #include "update.h"
+#include "luckystats.h"
 #include "MemCard.h"
 #include "Patches.h"
 #include "kernel_zip.h"
@@ -803,6 +804,10 @@ int main(int argc, char **argv)
 		ncfg->VideoMode |= NIN_VID_PROG;
 	else
 		ncfg->VideoMode &= ~NIN_VID_PROG;
+
+	// The games saved since the last start, to Lucky Stats (nothing without the player's key for it)
+	if(argsboot == false && !SlippWiiMenuTest)
+		LuckyStats_Run(PrepareSlippiRTC() + 946684800);
 
 	// Not autobooting - loop in game selection GUI
 	bool SaveSettings = false;

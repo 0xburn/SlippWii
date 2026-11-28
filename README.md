@@ -87,6 +87,27 @@ install. (A very old SlippWii with no *Check for Updates* row has to be updated 
 SlippWii only installs its own signed releases, and it contacts GitHub only when you press the
 button: nothing about you or your console is sent.
 
+### Lucky Stats (optional)
+
+SlippWii can send the games it saves to your own [Lucky Stats](https://luckystats.gg) account. It is
+off, and SlippWii contacts Lucky Stats not at all, unless you put a key on the card:
+
+1. Turn on **Slippi Replays** (the *Slippi Settings* page): what is sent are those files.
+2. On luckystats.gg, under *Account > App uploads*, make a key for **SlippWii** (uploads need Premium).
+3. Save it on the SD card as `slippwii/luckystats.txt`, a text file with one line: `key=l7u_...`
+
+From then on SlippWii sends new finished games each time it **starts**, before the game list; it never
+does while Melee runs. So after playing, start SlippWii once more to send that session. **B** skips it:
+the games are kept and sent the next time. What was on a drive when SlippWii first saw it with a key is
+not sent; add a line `history=yes` to send all of it. What was sent is listed in
+`slippwii/luckystats_sent.txt` on each drive; leave that file there. Any `Game_*.slp` in the `Slippi`
+folder counts, Slippi Nintendont's too.
+
+The Wii's date and time must be right (*Wii Settings > Calendar*): they are what Lucky Stats'
+certificate is checked against, and nothing is sent when it doesn't fit. The key can only send games to
+your account, but anyone with the card can read it: don't share the file, and revoke the key on the site
+if you lose the card. To stop, delete `slippwii/luckystats.txt`.
+
 ### Your Slippi account
 
 Slippi Launcher keeps your login in a file named `user.json`; SlippWii needs a copy in
@@ -231,8 +252,8 @@ Building from source: [`docs/BUILDING.md`](docs/BUILDING.md).
   (slippi-ssbm-asm) and Slippi Nintendont, which this is built on. Thank you, Fizzi and the Slippi team.
 - [Nintendont](https://github.com/FIX94/Nintendont) by FIX94, crediar and contributors.
 - [ENet](http://enet.bespin.org/) by Lee Salzman (MIT).
-- [BearSSL](https://bearssl.org/) by Thomas Pornin (MIT) and puff by Mark Adler (zlib licence), for
-  *Check for Updates*.
+- [BearSSL](https://bearssl.org/) by Thomas Pornin (MIT), for *Check for Updates* and Lucky Stats, and
+  puff by Mark Adler (zlib licence), for *Check for Updates*.
 
 SlippWii is licensed under the GNU General Public License v2 (see [LICENSE](LICENSE)), as
 Nintendont is. Slippi's online code that SlippWii downloads and runs (slippi-ssbm-asm) is GPLv3.

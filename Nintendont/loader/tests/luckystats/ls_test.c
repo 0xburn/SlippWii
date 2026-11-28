@@ -251,7 +251,10 @@ int main(int argc, char **argv)
 		ls_test_root.pkey.key.ec.qlen = (size_t)unhex(argv[7], q, sizeof(q));
 		ls_test_root_set = 1;
 		memset(&c, 0, sizeof(c));
-		sprintf(c.key, "l7u_%064d", 5);
+		if (getenv("LS_KEY") && strlen(getenv("LS_KEY")) == LS_KEY_LEN)
+			memcpy(c.key, getenv("LS_KEY"), LS_KEY_LEN);
+		else
+			sprintf(c.key, "l7u_%064d", 5);
 		c.history = atoi(argv[8]);
 		len = (uint32_t)ls_run(&c, devs, devs & 1 ? 0 : 1, &sent, &later);
 		printf("RESULT %u %d\nLATER %u\n", (unsigned)len, sent, (unsigned)later);

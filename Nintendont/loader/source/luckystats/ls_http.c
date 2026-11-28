@@ -284,7 +284,7 @@ static int exchange(Conn *c, const LsRequest *r, LsAnswer *a)
 {
 	char authority[144], type[80] = "";
 	const char *v;
-	int n, at, res;
+	int n, at, res, sent = 0;
 	In in;
 
 	if (!br_ssl_client_reset(&c->sc, r->host, 0))
@@ -312,8 +312,9 @@ static int exchange(Conn *c, const LsRequest *r, LsAnswer *a)
 			return failed(c, a);
 		if (a->status != 100)
 			break;
-		if (!r->file)
+		if (!r->file || sent)
 			return LS_SERVER;
+		sent = 1;
 		res = send_body(c, r, a);
 		if (res != LS_OK)
 			return res;
@@ -331,7 +332,7 @@ static int exchange(Conn *c, const LsRequest *r, LsAnswer *a)
 		in.at = at;
 		in.have = n;
 		if (read_body(&in, length[0] ? length : NULL, chunked, a) < 0)
-			return LS_NET;
+			return failed(c, a);
 	}
 	a->body[a->len] = 0;
 	return LS_OK;

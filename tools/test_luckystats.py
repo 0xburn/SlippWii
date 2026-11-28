@@ -439,6 +439,16 @@ def tests(exe, d):
     check("the server's wait", w.start(now=w.now + 7199)[0] == LATER and w.later == 1, w.out)
     check("the server's wait: over", w.start(now=w.now + 7201) == (OK, 1) and w.later == 0, w.out)
 
+    # a new key tries right away instead of waiting out an earlier key's failure
+    w, s = fresh()
+    w.start()
+    g = w.game(1)
+    bad_key = 'l7u_' + '9'.zfill(64)
+    check('bad key refused', w.start({'LS_KEY': bad_key}) == (NOKEY, 0), w.out)
+    check('same bad key waits', w.start({'LS_KEY': bad_key})[0] == LATER and w.later == 300, w.out)
+    check('new key bypasses wait', w.start() == (OK, 1) and uploaded(s) == shas(g), w.out)
+    check('new key clears wait', w.state().rstrip().endswith('w 0 0'), w.state())
+
     # no network, no drive
     w, s = fresh()
     w.start()

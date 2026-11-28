@@ -49,6 +49,7 @@ typedef struct {
 	int torn;		/* the file's last line has no end */
 	uint32_t voided;	/* uploads that came to nothing: in the next one's id */
 	uint32_t wait_until, failures;
+	char wait_key[9];	/* short hash of the key that failed (a new key does not wait for an old failure) */
 	char id[33];		/* the upload that is under way ("": none) */
 	int count;
 	LsFile *f;		/* LS_BATCH_FILES of them */
@@ -200,9 +201,17 @@ static void read_state(Drive *d, char *t, uint32_t len, int history)
 				d->f[i].put = 0;
 		} else if ((strcmp(line, "c") == 0 || strcmp(line, "d") == 0) && d->id[0]) {
 			upload_over(d, line[0] == 'c');
-		} else if (sscanf(line, "w %lu %lu", &size, &b) == 2) {
-			d->wait_until = (uint32_t)size;
-			d->failures = (uint32_t)b;
+		} else if (line[0] == 'w') {
+			char tag[9] = "";
+			int got = sscanf(line, "w %lu %lu %8s", &size, &b, tag);
+			if (got >= 2) {
+				d->wait_until = (uint32_t)size;
+				d->failures = (uint32_t)b;
+				if (got == 3 && strlen(tag) == 8 && strspn(tag, "0123456789abcdef") == 8)
+					strcpy(d->wait_key, tag);
+				else
+					d->wait_key[0] = 0;
+			}
 		}
 	}
 	if (want)
@@ -409,6 +418,8 @@ static int new_upload(Drive *d)
 				snprintf(line, sizeof(line), "x %lu %s\n", (unsigned long)f->size, f->name);
 				res = append(d, line);
 				know(d, f->name, f->size);
+				if (d->no_memory)
+					res = LS_CARD;
 			} else {
 				bytes += f->size;
 				if (kept != i)
@@ -828,6 +839,8 @@ static int drive(Session *s, Drive *d, int *sent, int *online)
 		if (res == LS_OK) {
 			*sent += d->count;
 			upload_over(d, 1);
+			if (d->no_memory)
+				return LS_CARD;
 			if (d->known_count)
 				qsort(d->known, d->known_count, sizeof(*d->known), by_hash);
 			voids = 0;
@@ -848,18 +861,32 @@ static int drive(Session *s, Drive *d, int *sent, int *online)
 	}
 }
 
+static void key_tag(const char *key, char out[9])
+{
+	br_sha256_context h;
+	uint8_t digest[32];
+	br_sha256_init(&h);
+	br_sha256_update(&h, "SlippWii key tag", 16);
+	br_sha256_update(&h, key, LS_KEY_LEN);
+	br_sha256_out(&h, digest);
+	hex(digest, 4, out);
+	memset(digest, 0, sizeof(digest));
+	memset(&h, 0, sizeof(h));
+}
+
 int ls_run(const LsConfig *config, int devs, int state_dev, int *sent, uint32_t *later)
 {
 	Drive *d[2] = { NULL, NULL };
 	Session s;
 	uint32_t now = ls_plat_time(), wait;
-	int res = LS_OK, online = 0, dev;
-	char line[48];
+	int res = LS_OK, online = 0, dev, key_changed = 0;
+	char line[64], tag[9];
 
 	*sent = 0;
 	*later = 0;
 	memset(&s, 0, sizeof(s));
 	s.config = config;
+	key_tag(config->key, tag);
 	for (dev = 0; dev < 2 && res == LS_OK; dev++) {
 		if (!(devs & 1 << dev))
 			continue;
@@ -870,6 +897,13 @@ int ls_run(const LsConfig *config, int devs, int state_dev, int *sent, uint32_t 
 			res = LS_CARD;
 		else
 			res = open_state(d[dev], dev, config->history);
+	}
+	/* A new key in luckystats.txt clears an earlier failure's wait so the player does not have to wait
+	 * up to 6 hours after fixing a revoked or wrong key. */
+	if (res == LS_OK && d[state_dev]->wait_key[0] && strcmp(d[state_dev]->wait_key, tag) != 0) {
+		d[state_dev]->wait_until = 0;
+		d[state_dev]->failures = 0;
+		key_changed = 1;
 	}
 	/* After failures it waits: 5 minutes, twice that, ... 6 hours, or what the server said. (A time further
 	 * off than that: the clock was set. Not waited for.) */
@@ -884,7 +918,7 @@ int ls_run(const LsConfig *config, int devs, int state_dev, int *sent, uint32_t 
 		for (dev = 0; dev < 2 && res == LS_OK; dev++)
 			if (d[dev])
 				res = drive(&s, d[dev], sent, &online);
-		if (res == LS_OK && d[state_dev]->failures) {
+		if (res == LS_OK && (d[state_dev]->failures || key_changed)) {
 			append(d[state_dev], "w 0 0\n");
 		} else if (res != LS_OK && res != LS_CANCEL && res != LS_CARD) {
 			uint32_t n = d[state_dev]->failures;
@@ -893,7 +927,7 @@ int ls_run(const LsConfig *config, int devs, int state_dev, int *sent, uint32_t 
 				wait = 6 * 3600;
 			if (s.retry_after > wait)
 				wait = s.retry_after < 24 * 3600 ? s.retry_after : 24 * 3600;
-			snprintf(line, sizeof(line), "w %lu %lu\n", (unsigned long)(ls_plat_time() + wait), (unsigned long)(n < 100 ? n + 1 : n));
+			snprintf(line, sizeof(line), "w %lu %lu %s\n", (unsigned long)(ls_plat_time() + wait), (unsigned long)(n < 100 ? n + 1 : n), tag);
 			append(d[state_dev], line);
 		}
 		if (s.a.body) {
